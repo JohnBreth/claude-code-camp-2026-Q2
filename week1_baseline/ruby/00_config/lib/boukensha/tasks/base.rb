@@ -6,11 +6,11 @@ module Boukensha
       end
 
       def self.provider(settings)
-        fetch(settings, :provider) || raise(ArgumentError, "tasks.#{task_name}.provider is required in settings.yml")
+        fetch(settings, :provider) || raise(ArgumentError, "tasks.#{task_name}.provider is required in settings.yaml")
       end
 
       def self.model(settings)
-        fetch(settings, :model) || raise(ArgumentError, "tasks.#{task_name}.model is required in settings.yml")
+        fetch(settings, :model) || raise(ArgumentError, "tasks.#{task_name}.model is required in settings.yaml")
       end
 
       def self.prompt_override?(settings, prompt = :system)

@@ -4,3 +4,7 @@
 # Environment / secrets
 .env
 .env.local
+
+# Python virtualenvs
+.venv/
+__pycache__/

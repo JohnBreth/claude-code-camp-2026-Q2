@@ -133,12 +133,20 @@ The README says "use the standard library as much as possible". Python's stdlib 
 ## Questions for you (please answer before implementation)
 
 1. **YAML dependency.** Is `PyYAML` acceptable as the one third-party dependency, given the "stdlib only" preference? The alternative is a hand-written parser covering only our small schema, which is fragile. *Recommendation: PyYAML.*
+-Go PyYAML
 2. **Packaging and tooling.** Which Python version floor (3.10? 3.11+)? Which tooling: `pyproject.toml` + `uv`/`pip`, or a simple `requirements.txt` + `venv`? I see `week0_explore/circlemud-world-parser` has a `.python-version` and `Makefile`; should I follow that convention?
+-Whichever python is recommended. Go requirements.txt and venv. Yes.
 3. **`.env` loading.** Use `python-dotenv` (mirrors Ruby's `dotenv` gem, second dependency) or a small stdlib parser (`KEY=VALUE`, comments, quotes) with no extra dependency? *Recommendation: python-dotenv for parity and fewer edge-case bugs, unless you want minimal deps.*
+-Use python-dotenv
 4. **Package layout.** Is `boukensha/` as a package directly under `python/00_config/` right, or do you prefer a `src/boukensha/` layout? And does each later iteration (`01_…`) get its own copy of the package like the Ruby folders do? I'm assuming yes.
-5. **Launcher script.** The Ruby launchers are `week1_baseline/bin/00_config` and `week1_baseline/ruby/bin/00_config`. `week1_baseline/bin/` currently only holds the Ruby one. Should I add `week1_baseline/python/bin/00_config` and leave the top-level one alone, or add a language switch to the top-level script?
+-It is a package under python/00_config. Yes to the second question.
+5. **Launcher script.** The Ruby launchers are `week1_baseline/bin/00_config` and `week1_baseline/ruby/bin/00_config`. `week1_baseline/bin/` currently only holds the Ruby one. Should I add `week1_baseline/python/bin/00_config` and leave the top-level one alone, or add a language switch to the top-level script? 
+-Add a language switch to the top level script.
 6. **API style for `Config`.** Keep Ruby-style methods (`config.mud_host()`), or use Pythonic properties (`config.mud_host`)? And `config.tasks("player")` / `Player.provider(settings)` classmethods as in the plan, or plain module-level functions? *Recommendation: properties for the simple getters, classmethods for tasks, to stay recognisably parallel to Ruby.*
+-Follow your recommendation.
 7. **Output parity.** Should `example.py` reproduce Ruby's output byte-for-byte (including lowercase `true`/`false` and the `#<Boukensha::Config ...>` string), or format it Pythonically (`True`, `<Config ...>`)? The plan assumes byte-for-byte so the two can be diffed.
+-Byte for byte.
 8. **Ruby inconsistencies.** The Ruby error messages in `tasks/base.rb` say `settings.yml` while the file is `settings.yaml`. Should I fix the message in Python only, or fix it in Ruby too?
-9. **Git state.** `git status` shows `.boukensha/setting.yml` deleted and `.boukensha/settings.yaml` untracked, which looks like a rename. Should I leave that alone, or should it be committed as part of this work? Also, `.boukensha/settings.yaml` contains a MUD password (`helloworld`); is that fine for the repo as a dummy credential?
-10. **Tests.** Do you want a `tests/` folder (`unittest` or `pytest`) for the checks in section 6, or is the example script enough for this iteration?
+-Fix in both
+9. **Git state.** `git status` shows `.boukensha/setting.yml` deleted and `.boukensha/settings.yaml` untracked, which looks like a rename. Should I leave that alone, or should it be committed as part of this work? Also, `.boukensha/settings.yaml` contains a MUD password (`helloworld`); is that fine for the repo as a dummy credential? - This has already been fixed, and yes you can leave the dummy credential.
+10. **Tests.** Do you want a `tests/` folder (`unittest` or `pytest`) for the checks in section 6, or is the example script enough for this iteration? - Example script is enough for this iteration.
