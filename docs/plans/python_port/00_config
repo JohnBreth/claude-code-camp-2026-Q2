@@ -1,0 +1,144 @@
+# Python Port Plan — 00_config
+
+Port the Ruby `00_config` iteration to Python. Target directory (already exists, empty):
+
+```
+week1_baseline/python/00_config/
+```
+
+The Ruby version is the source of truth. Behaviour must match; the idiom should be Python's.
+
+## 1. Read these files first (do not port from memory)
+
+| Read | Why |
+|------|-----|
+| `week1_baseline/ruby/00_config/README.md` | The spec: design goals, config dir resolution, directory layout, prompt resolution order, schema, expected output |
+| `week1_baseline/ruby/00_config/lib/boukensha/config.rb` | `Config` class to port |
+| `week1_baseline/ruby/00_config/lib/boukensha/tasks/base.rb` | Abstract stateless `Tasks::Base` (provider/model/prompt resolution) |
+| `week1_baseline/ruby/00_config/lib/boukensha/tasks/player.rb` | Concrete `Player` task (only sets `task_name`) |
+| `week1_baseline/ruby/00_config/lib/boukensha.rb` | Top-level require, which becomes the package `__init__.py` |
+| `week1_baseline/ruby/00_config/examples/example.rb` | Smoke test to mirror in Python; output format must match |
+| `week1_baseline/ruby/00_config/prompts/system.md` | Default prompt to copy into the Python package |
+| `week1_baseline/ruby/00_config/Gemfile` | The only dependency is `dotenv` |
+| `week1_baseline/ruby/bin/00_config` and `week1_baseline/bin/00_config` | Launcher scripts to mirror |
+| `.boukensha/settings.yaml` and `.boukensha/prompts/player/system.md` | Real config the example runs against. The Python version must read these unchanged. |
+| `week1_baseline/ruby/ITERATIONS.md` | Context on the Ruby→Python goal and the "prefer stdlib" constraint |
+
+Do not read later iterations (`01_*` onward). They only matter once we port those steps.
+
+## 2. Target file layout
+
+```
+week1_baseline/python/00_config/
+  pyproject.toml              # or requirements.txt, see Q2
+  README.md                   # adapt from the Ruby README (Python snippets, same schema/behaviour)
+  boukensha/
+    __init__.py               # exports Config, Tasks (mirrors lib/boukensha.rb)
+    config.py                 # Config
+    prompts/
+      system.md               # copy of ruby/00_config/prompts/system.md
+    tasks/
+      __init__.py
+      base.py                 # Base
+      player.py               # Player
+  examples/
+    example.py                # mirrors examples/example.rb
+week1_baseline/python/bin/00_config      # launcher, if Q5 is yes
+```
+
+## 3. Port mapping
+
+### `Config` (`config.rb` → `config.py`)
+
+| Ruby | Python |
+|------|--------|
+| `DEFAULT_DIR = File.join(Dir.home, ".boukensha")` | `Path.home() / ".boukensha"` |
+| `PROMPTS_DIR = File.expand_path("../../prompts", __dir__)` | `Path(__file__).parent / "prompts"` |
+| `ENV.fetch("BOUKENSHA_DIR", nil) \|\| DEFAULT_DIR`, then `expand_path` | `os.environ.get("BOUKENSHA_DIR") or DEFAULT_DIR`, then `.expanduser().resolve()` (see gotchas) |
+| `Dotenv.load(env_file) if File.exist?` | load `<dir>/.env` if it exists (see Q3) |
+| `YAML.safe_load(File.read(f)) \|\| {}` | `yaml.safe_load(...) or {}`, `{}` when the file is missing |
+| `tasks(name = nil)` | `tasks(self, name=None)`: full dict, or one task's dict |
+| `user_prompts_dir` | property or method returning `<dir>/prompts` |
+| `mud_host/port/username/password` | same names; defaults `"localhost"` and `4000`; username and password default to `None` |
+| `dig(*keys)` | `dig(self, *keys)`: nested lookup that returns `None` on a miss or non-dict node |
+| `to_s` / `inspect` | `__str__` / `__repr__` → `#<Boukensha::Config dir=... tasks=player>`, keeping the exact format so example output matches |
+
+Keep `dir` and `settings` as read-only attributes (`@property`).
+
+### `Tasks::Base` (`base.rb` → `tasks/base.py`)
+
+Stateless: classmethods that take a `settings` dict, no instances. `task_name` raises `NotImplementedError` on `Base`.
+
+| Ruby | Python |
+|------|--------|
+| `provider(settings)` | `provider(cls, settings)`: raises `ValueError` if missing |
+| `model(settings)` | `model(cls, settings)`: raises `ValueError` if missing |
+| `prompt_override?(settings, prompt = :system)` | `prompt_override(cls, settings, prompt="system")`: true only when the value `is True` |
+| `prompt(settings, name, user_prompts_dir:, default_prompts_dir:)` | same, keyword-only dirs |
+| `system_prompt(...)` | thin wrapper over `prompt(..., "system", ...)` |
+| private `fetch`, `read_user_prompt`, `read_default_prompt`, `read_file` | `_`-prefixed classmethods or module helpers |
+
+Resolution order (must be preserved): the user override `<user_prompts_dir>/<task_name>/<name>.md` is used only if `prompt_override.<name>` is `true` AND the file exists. Otherwise fall back to `<default_prompts_dir>/<name>.md`. Return `None` if neither exists. File contents are `.strip()`ped.
+
+### `Player` (`player.rb` → `tasks/player.py`)
+
+`class Player(Base): task_name = "player"`. Ruby defines `.task_name` as a method. A class attribute is the Pythonic equivalent. `Base` still needs a guard so the abstract case raises.
+
+### Example (`example.rb` → `example.py`)
+
+- Set `os.environ.setdefault("BOUKENSHA_DIR", <repo>/.boukensha)`. Count the `..` levels carefully, because the Python example sits at a different depth than the Ruby one.
+- Print the same banner and fields, in the same order, with the same labels.
+- `Boukensha::Config::PROMPTS_DIR` becomes the `PROMPTS_DIR` constant on `Config`.
+- Use `[:60]` for the system prompt truncation. Handle `None` the way Ruby's `&.slice` does.
+- `API key set?` should print lowercase `true`/`false` to match the Ruby output exactly, or note the deliberate difference in the README (see Q7).
+
+## 4. Gotchas to preserve (Ruby → Python semantics)
+
+1. **Truthiness.** In Ruby only `nil` and `false` are falsy. Python's `or` also treats `0`, `""`, and `{}` as falsy. Use explicit `is None` checks in `dig`, `fetch`, and the default fallbacks (`mud_port` of `0` is unlikely but `""` is plausible).
+2. **String/symbol keys.** Ruby's `dig`/`fetch` accept both `"player"` and `:player`. YAML in Python only yields string keys, so one string lookup is enough. Do not recreate symbols.
+3. **`prompt_override` strictness.** The Ruby check is `== true`, so `"true"` or `1` must not enable the override. In Python `1 == True`, so use `is True`.
+4. **`Dotenv.load` does not overwrite** variables already set in the environment. Whatever loader we use must behave the same way (`override=False`).
+5. **`.env` is loaded after `dir` is resolved**, and `BOUKENSHA_DIR` is read before `.env`, so `.env` cannot change the config dir.
+6. **`expand_path`** resolves `~` and relative paths without requiring the path to exist. `Path.resolve()` is fine on Python 3.6+ for non-existent paths, but `expanduser()` must come first.
+7. **Error message wording.** The Ruby text says `settings.yml`, but the file is `settings.yaml`. Use `settings.yaml` in Python (see Q8).
+8. **Missing settings file** returns `{}`, not an error. An empty or malformed file: empty → `{}`; malformed YAML should still raise (as Ruby does).
+
+## 5. Dependencies
+
+The README says "use the standard library as much as possible". Python's stdlib has **no YAML parser** and **no `.env` loader**, so:
+
+- YAML: `PyYAML` (`yaml.safe_load`). Unavoidable unless we hand-roll a parser or change formats (see Q1).
+- `.env`: `python-dotenv`, or about 15 lines of stdlib parsing (see Q3).
+
+## 6. Verification
+
+1. `week1_baseline/python/bin/00_config` (or `python examples/example.py`) runs without error from a clean venv.
+2. Output matches the Ruby run line for line against the same `.boukensha/`. Diff the two outputs, not just eyeball them. The `Config dir:` line may differ only by machine path.
+3. Behaviour checks beyond the example (quick ad-hoc script or `unittest`):
+   - `BOUKENSHA_DIR` unset → falls back to `~/.boukensha`
+   - missing `settings.yaml` → `tasks()` is `{}` and `mud_port` is `4000`
+   - `prompt_override.system: false` or absent → default prompt is used
+   - override enabled but `prompts/player/system.md` missing → default prompt is used
+   - missing `provider` or `model` → raises with the task name in the message
+4. The Ruby version still runs untouched (`week1_baseline/ruby/bin/00_config`).
+
+## 7. Out of scope
+
+- Any iteration after `00_config`
+- Changing the config schema or the `.boukensha/` layout (both languages must share it)
+- Per-task ceilings (`max_iterations`, etc.). The Ruby README says these are not read yet, so don't add them.
+
+---
+
+## Questions for you (please answer before implementation)
+
+1. **YAML dependency.** Is `PyYAML` acceptable as the one third-party dependency, given the "stdlib only" preference? The alternative is a hand-written parser covering only our small schema, which is fragile. *Recommendation: PyYAML.*
+2. **Packaging and tooling.** Which Python version floor (3.10? 3.11+)? Which tooling: `pyproject.toml` + `uv`/`pip`, or a simple `requirements.txt` + `venv`? I see `week0_explore/circlemud-world-parser` has a `.python-version` and `Makefile`; should I follow that convention?
+3. **`.env` loading.** Use `python-dotenv` (mirrors Ruby's `dotenv` gem, second dependency) or a small stdlib parser (`KEY=VALUE`, comments, quotes) with no extra dependency? *Recommendation: python-dotenv for parity and fewer edge-case bugs, unless you want minimal deps.*
+4. **Package layout.** Is `boukensha/` as a package directly under `python/00_config/` right, or do you prefer a `src/boukensha/` layout? And does each later iteration (`01_…`) get its own copy of the package like the Ruby folders do? I'm assuming yes.
+5. **Launcher script.** The Ruby launchers are `week1_baseline/bin/00_config` and `week1_baseline/ruby/bin/00_config`. `week1_baseline/bin/` currently only holds the Ruby one. Should I add `week1_baseline/python/bin/00_config` and leave the top-level one alone, or add a language switch to the top-level script?
+6. **API style for `Config`.** Keep Ruby-style methods (`config.mud_host()`), or use Pythonic properties (`config.mud_host`)? And `config.tasks("player")` / `Player.provider(settings)` classmethods as in the plan, or plain module-level functions? *Recommendation: properties for the simple getters, classmethods for tasks, to stay recognisably parallel to Ruby.*
+7. **Output parity.** Should `example.py` reproduce Ruby's output byte-for-byte (including lowercase `true`/`false` and the `#<Boukensha::Config ...>` string), or format it Pythonically (`True`, `<Config ...>`)? The plan assumes byte-for-byte so the two can be diffed.
+8. **Ruby inconsistencies.** The Ruby error messages in `tasks/base.rb` say `settings.yml` while the file is `settings.yaml`. Should I fix the message in Python only, or fix it in Ruby too?
+9. **Git state.** `git status` shows `.boukensha/setting.yml` deleted and `.boukensha/settings.yaml` untracked, which looks like a rename. Should I leave that alone, or should it be committed as part of this work? Also, `.boukensha/settings.yaml` contains a MUD password (`helloworld`); is that fine for the repo as a dummy credential?
+10. **Tests.** Do you want a `tests/` folder (`unittest` or `pytest`) for the checks in section 6, or is the example script enough for this iteration?
