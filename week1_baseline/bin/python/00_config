@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+cd "$(dirname "$0")/../../python/00_config" || exit 1
+if [ ! -d .venv ]; then
+  python3 -m venv .venv && .venv/bin/pip install -q -r requirements.txt
+fi
+.venv/bin/python examples/example.py

@@ -105,7 +105,7 @@ mud:
 ## Run Example
 
 ```bash
-./week1_baseline/bin/00_config python
+./week1_baseline/bin/python/00_config
 ```
 
 Expected output (values from your `.boukensha/`):

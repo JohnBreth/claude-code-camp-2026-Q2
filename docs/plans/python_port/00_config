@@ -20,7 +20,7 @@ The Ruby version is the source of truth. Behaviour must match; the idiom should 
 | `week1_baseline/ruby/00_config/examples/example.rb` | Smoke test to mirror in Python; output format must match |
 | `week1_baseline/ruby/00_config/prompts/system.md` | Default prompt to copy into the Python package |
 | `week1_baseline/ruby/00_config/Gemfile` | The only dependency is `dotenv` |
-| `week1_baseline/ruby/bin/00_config` and `week1_baseline/bin/00_config` | Launcher scripts to mirror |
+| `week1_baseline/ruby/bin/00_config` and the Ruby launcher (now `week1_baseline/bin/ruby/00_config`) | Launcher scripts to mirror |
 | `.boukensha/settings.yaml` and `.boukensha/prompts/player/system.md` | Real config the example runs against. The Python version must read these unchanged. |
 | `week1_baseline/ruby/ITERATIONS.md` | Context on the Ruby→Python goal and the "prefer stdlib" constraint |
 
@@ -43,7 +43,7 @@ week1_baseline/python/00_config/
       player.py               # Player
   examples/
     example.py                # mirrors examples/example.rb
-week1_baseline/python/bin/00_config      # launcher, if Q5 is yes
+week1_baseline/bin/python/00_config      # launcher (Ruby's moved to week1_baseline/bin/ruby/00_config)
 ```
 
 ## 3. Port mapping
@@ -150,3 +150,5 @@ The README says "use the standard library as much as possible". Python's stdlib 
 -Fix in both
 9. **Git state.** `git status` shows `.boukensha/setting.yml` deleted and `.boukensha/settings.yaml` untracked, which looks like a rename. Should I leave that alone, or should it be committed as part of this work? Also, `.boukensha/settings.yaml` contains a MUD password (`helloworld`); is that fine for the repo as a dummy credential? - This has already been fixed, and yes you can leave the dummy credential.
 10. **Tests.** Do you want a `tests/` folder (`unittest` or `pytest`) for the checks in section 6, or is the example script enough for this iteration? - Example script is enough for this iteration.
+
+**Update (Q5 revised):** no language switch. Launchers live in per-language folders: `week1_baseline/bin/ruby/00_config` and `week1_baseline/bin/python/00_config`.
