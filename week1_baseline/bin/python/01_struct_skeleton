@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+cd "$(dirname "$0")/../../python" || exit 1
+# One virtualenv shared by every Python iteration.
+if [ ! -d .venv ]; then
+  python3 -m venv .venv || exit 1
+fi
+.venv/bin/pip install -q -r 01_struct_skeleton/requirements.txt || exit 1
+cd 01_struct_skeleton && ../.venv/bin/python examples/example.py
